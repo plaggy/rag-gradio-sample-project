@@ -5,7 +5,7 @@ Deliberately stripped down to leave some room for experimenting
 - Clone https://github.com/huggingface/transformers to a local machine
 - Use the **prep_scrips/markdown_to_text.py** script to extract raw text from markdown from transformers/docs/source/en/
 - Break the resulting texts down into semantically meaningful pieces. Experiment with different chunking mechanisms to make sure the semantic meaning is captured.
-- Use **prep_scrips/lancedb_setup.py** to embed and store chunks in a [lancedb](https://lancedb.github.io/lancedb/) instance. It also creates an index for fast ANN retrieval (not really needed for this exercise but necessary at scale). You'll need to put your own values into VECTOR_COLUMN_NAME, TEXT_COLUMN_NAME, DB_TABLE_NAME.
+- Use **prep_scrips/lancedb_setup.py** to embed and store chunks in a [lancedb](https://lancedb.github.io/lancedb/) instance. It also creates an index for fast ANN retrieval (not really needed for this exercise but necessary at scale). You'll need to put your own values into VECTOR_COLUMN_NAME, TEXT_COLUMN_NAME, DB_TABLE_NAME. If you are getting lancedb errors at the inference time try to drop the index because it might be not enough data to make it work.
 - Move the database directory (.lancedb by default) to **gradio_app/**
 - Use the template given in **gradio_app** to wrap everything into the [Gradio](https://www.gradio.app/docs/interface) app and run it on HF [spaces](https://huggingface.co/docs/hub/spaces-config-reference). Make sure to adjust VECTOR_COLUMN_NAME, TEXT_COLUMN_NAME, DB_TABLE_NAME according to your DB setup.
 - In your space, set up secrets OPENAI_API_KEY and HUGGING_FACE_HUB_TOKEN to use OpenAI and open-source models correspondingly
