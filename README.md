@@ -17,7 +17,7 @@ Deliberately stripped down to leave some room for experimenting
     - Deliverables: Demonstrate how retrieved documents differ with different embedding models and how they affect the output. Provide an estimate of how the time to embed the chunks and DB ingestion time differs (happening in **prep_scrips/lancedb_setup.py**).
   - Add a re-ranker (cross-encoder) to the pipeline. Start with sentence-transformers pages on cross-encoders [1](https://www.sbert.net/examples/applications/cross-encoder/README.html) [2](https://www.sbert.net/examples/applications/retrieve_rerank/README.html), then pick a [pretrained cross-encoder](https://www.sbert.net/docs/pretrained-models/ce-msmarco.html), e.g. **cross-encoder/ms-marco-MiniLM-L-12-v2**. Don't forget to increase the number of *retrieved* documents when using re-ranker. The number of documents used as context should stay the same.
     - Deliverables: Demonstrate how retrieved documents differ after adding a re-ranker and how it affects the output. Provide an estimate of how latency changes. 
-  - Try another LLM (e.g. LLaMA-2-70b, falcon-180b).
+  - Try another LLM (e.g. LLaMA-2-70b, falcon-180b-chat).
     - Deliverables: Demonstrate how LLMs affect the output and how latency changes with the model size.
   - Add more documents (e.g. diffusers, tokenizers, optimum, etc) to see how the system scales.
     - Deliverables: Demonstrate how latency changes, and how it differs with and without index (index is added in **prep_scrips/lancedb_setup.py**).
