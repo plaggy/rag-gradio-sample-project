@@ -1,25 +1,37 @@
 import openai
 import gradio as gr
+import os
 
-from os import getenv
 from typing import Any, Dict, Generator, List
 
 from huggingface_hub import InferenceClient
 from transformers import AutoTokenizer
 
-tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-Instruct-v0.1")
 
-temperature = 0.9
-top_p = 0.6
-repetition_penalty = 1.2
+OPENAI_KEY = os.getenv("OPENAI_API_KEY")
+HF_TOKEN = os.getenv("HF_TOKEN")
+TOKENIZER = AutoTokenizer.from_pretrained(os.getenv("HF_MODEL"))
 
-OPENAI_KEY = getenv("OPENAI_API_KEY")
-HF_TOKEN = getenv("HUGGING_FACE_HUB_TOKEN")
+HF_CLIENT = InferenceClient(
+    os.getenv("HF_MODEL"),
+    token=HF_TOKEN
+)
+OAI_CLIENT = openai.Client(api_key=OPENAI_KEY)
 
-hf_client = InferenceClient(
-        "mistralai/Mistral-7B-Instruct-v0.1",
-        token=HF_TOKEN
-        )
+HF_GENERATE_KWARGS = {
+    'temperature': max(float(os.getenv("TEMPERATURE", 0.9)), 1e-2),
+    'max_new_tokens': int(os.getenv("MAX_NEW_TOKENS", 256)),
+    'top_p': float(os.getenv("TOP_P", 0.6)),
+    'repetition_penalty': float(os.getenv("REP_PENALTY", 1.2)),
+    'do_sample': bool(os.getenv("DO_SAMPLE", True))
+}
+
+OAI_GENERATE_KWARGS = {
+    'temperature': max(float(os.getenv("TEMPERATURE", 0.9)), 1e-2),
+    'max_tokens': int(os.getenv("MAX_NEW_TOKENS", 256)),
+    'top_p': float(os.getenv("TOP_P", 0.6)),
+    'frequency_penalty': max(-2, min(float(os.getenv("FREQ_PENALTY", 0)), 2))
+}
 
 
 def format_prompt(message: str, api_kind: str):
@@ -28,7 +40,7 @@ def format_prompt(message: str, api_kind: str):
 
     Args:
         message (str): The user message to be formatted.
-
+        api_kind (str): LLM API provider.
     Returns:
         str: Formatted message after applying the chat template.
     """
@@ -39,46 +51,34 @@ def format_prompt(message: str, api_kind: str):
     if api_kind == "openai":
         return messages
     elif api_kind == "hf":
-        return tokenizer.apply_chat_template(messages, tokenize=False)
+        return TOKENIZER.apply_chat_template(messages, tokenize=False)
     elif api_kind:
         raise ValueError("API is not supported")
 
 
-def generate_hf(prompt: str, history: str, temperature: float = 0.9, max_new_tokens: int = 256,
-             top_p: float = 0.95, repetition_penalty: float = 1.0) -> Generator[str, None, str]:
+def generate_hf(prompt: str, history: str) -> Generator[str, None, str]:
     """
     Generate a sequence of tokens based on a given prompt and history using Mistral client.
 
     Args:
-        prompt (str): The initial prompt for the text generation.
+        prompt (str): The prompt for the text generation.
         history (str): Context or history for the text generation.
-        temperature (float, optional): The softmax temperature for sampling. Defaults to 0.9.
-        max_new_tokens (int, optional): Maximum number of tokens to be generated. Defaults to 256.
-        top_p (float, optional): Nucleus sampling probability. Defaults to 0.95.
-        repetition_penalty (float, optional): Penalty for repeated tokens. Defaults to 1.0.
-
     Returns:
         Generator[str, None, str]: A generator yielding chunks of generated text.
                                    Returns a final string if an error occurs.
     """
 
-    temperature = max(float(temperature), 1e-2)  # Ensure temperature isn't too low
-    top_p = float(top_p)
-
-    generate_kwargs = {
-        'temperature': temperature,
-        'max_new_tokens': max_new_tokens,
-        'top_p': top_p,
-        'repetition_penalty': repetition_penalty,
-        'do_sample': True,
-        'seed': 42,
-        }
-    
     formatted_prompt = format_prompt(prompt, "hf")
+    formatted_prompt = formatted_prompt.encode("utf-8").decode("utf-8")
 
     try:
-        stream = hf_client.text_generation(formatted_prompt, **generate_kwargs,
-                                            stream=True, details=True, return_full_text=False)
+        stream = HF_CLIENT.text_generation(
+            formatted_prompt,
+            **HF_GENERATE_KWARGS,
+            stream=True,
+            details=True,
+            return_full_text=False
+        )
         output = ""
         for response in stream:
             output += response.token.text
@@ -86,69 +86,43 @@ def generate_hf(prompt: str, history: str, temperature: float = 0.9, max_new_tok
 
     except Exception as e:
         if "Too Many Requests" in str(e):
-            print("ERROR: Too many requests on Mistral client")
-            gr.Warning("Unfortunately Mistral is unable to process")
-            return "Unfortunately, I am not able to process your request now."
+            raise gr.Error(f"Too many requests: {str(e)}")
         elif "Authorization header is invalid" in str(e):
-            print("Authetification error:", str(e))
-            gr.Warning("Authentication error: HF token was either not provided or incorrect")
-            return "Authentication error"
+            raise gr.Error("Authentication error: HF token was either not provided or incorrect")
         else:
-            print("Unhandled Exception:", str(e))
-            gr.Warning("Unfortunately Mistral is unable to process")
-            return "I do not know what happened, but I couldn't understand you."
+            raise gr.Error(f"Unhandled Exception: {str(e)}")
 
 
-def generate_openai(prompt: str, history: str, temperature: float = 0.9, max_new_tokens: int = 256,
-             top_p: float = 0.95, repetition_penalty: float = 1.0) -> Generator[str, None, str]:
+def generate_openai(prompt: str, history: str) -> Generator[str, None, str]:
     """
     Generate a sequence of tokens based on a given prompt and history using Mistral client.
 
     Args:
         prompt (str): The initial prompt for the text generation.
         history (str): Context or history for the text generation.
-        temperature (float, optional): The softmax temperature for sampling. Defaults to 0.9.
-        max_new_tokens (int, optional): Maximum number of tokens to be generated. Defaults to 256.
-        top_p (float, optional): Nucleus sampling probability. Defaults to 0.95.
-        repetition_penalty (float, optional): Penalty for repeated tokens. Defaults to 1.0.
-
     Returns:
         Generator[str, None, str]: A generator yielding chunks of generated text.
                                    Returns a final string if an error occurs.
     """
-
-    temperature = max(float(temperature), 1e-2)  # Ensure temperature isn't too low
-    top_p = float(top_p)
-    
-    generate_kwargs = {
-        'temperature': temperature,
-        'max_tokens': max_new_tokens,
-        'top_p': top_p,
-        'frequency_penalty': max(-2., min(repetition_penalty, 2.)),
-        }
-
     formatted_prompt = format_prompt(prompt, "openai")
 
     try:
-        stream = openai.ChatCompletion.create(model="gpt-3.5-turbo-0301",
-                                                messages=formatted_prompt, 
-                                                **generate_kwargs, 
-                                                stream=True)
+        stream = OAI_CLIENT.chat.completions.create(
+            model=os.getenv("OPENAI_MODEL"),
+            messages=formatted_prompt,
+            **OAI_GENERATE_KWARGS,
+            stream=True
+        )
         output = ""
         for chunk in stream:
-            output += chunk.choices[0].delta.get("content", "")
-            yield output
+            if chunk.choices[0].delta.content:
+                output += chunk.choices[0].delta.content
+                yield output
 
     except Exception as e:
         if "Too Many Requests" in str(e):
-            print("ERROR: Too many requests on OpenAI client")
-            gr.Warning("Unfortunately OpenAI is unable to process")
-            return "Unfortunately, I am not able to process your request now."
+            raise gr.Error("ERROR: Too many requests on OpenAI client")
         elif "You didn't provide an API key" in str(e):
-            print("Authetification error:", str(e))
-            gr.Warning("Authentication error: OpenAI key was either not provided or incorrect")
-            return "Authentication error"
+            raise gr.Error("Authentication error: OpenAI key was either not provided or incorrect")
         else:
-            print("Unhandled Exception:", str(e))
-            gr.Warning("Unfortunately OpenAI is unable to process")
-            return "I do not know what happened, but I couldn't understand you."
+            raise gr.Error(f"Unhandled Exception: {str(e)}")

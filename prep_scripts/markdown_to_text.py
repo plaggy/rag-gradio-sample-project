@@ -1,12 +1,11 @@
-from bs4 import BeautifulSoup
-from markdown import markdown
+import argparse
 import os
 import re
+
+from tqdm import tqdm
+from bs4 import BeautifulSoup
+from markdown import markdown
 from pathlib import Path
-
-
-DIR_TO_SCRAPE = "transformers/docs/source/en/"
-OUTPUT_DIR = str(Path().resolve() / "docs_dump")
 
 
 def markdown_to_text(markdown_string):
@@ -31,19 +30,33 @@ def markdown_to_text(markdown_string):
     return text
 
 
-dir_to_scrape = Path(DIR_TO_SCRAPE)
-files = list(dir_to_scrape.rglob("*"))
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input-dir", help="input directory with markdown", type=str,
+                        default="transformers/docs/source/en/")
+    parser.add_argument("--output-dir", help="output directory to store raw texts", type=str,
+                        default="docs")
 
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+    args = parser.parse_args()
+    input_dir = Path(args.input_dir)
+    output_dir = Path(args.output_dir)
 
-for file in files:
-    parent = file.parent.stem if file.parent.stem != dir_to_scrape.stem else ""
-    if file.is_file():
-        with open(file) as f:
-            md = f.read()
+    assert os.path.isdir(input_dir), "Input directory doesn't exist"
 
-        text = markdown_to_text(md)
+    files = input_dir.rglob("*")
+    os.makedirs(output_dir, exist_ok=True)
 
-        with open(os.path.join(OUTPUT_DIR, f"{parent}_{file.stem}.txt"), "w") as f:
-            f.write(text)
+    for file in tqdm(files):
+        parent = file.parent.stem if file.parent.stem != input_dir.stem else ""
+        if file.is_file():
+            with open(file) as f:
+                md = f.read()
 
+            text = markdown_to_text(md)
+
+            with open(output_dir / f"{parent}_{file.stem}.txt", "w") as f:
+                f.write(text)
+
+
+if __name__ == "__main__":
+    main()

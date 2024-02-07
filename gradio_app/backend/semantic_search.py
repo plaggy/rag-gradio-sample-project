@@ -1,18 +1,26 @@
-import logging
 import lancedb
 import os
-from pathlib import Path
+import gradio as gr
 from sentence_transformers import SentenceTransformer
 
-EMB_MODEL_NAME = ""
-DB_TABLE_NAME = ""
 
-# Setting up the logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-retriever = SentenceTransformer(EMB_MODEL_NAME)
+db = lancedb.connect(".lancedb")
 
-# db
-db_uri = os.path.join(Path(__file__).parents[1], ".lancedb")
-db = lancedb.connect(db_uri)
-table = db.open_table(DB_TABLE_NAME)
+TABLE = db.open_table(os.getenv("TABLE_NAME"))
+VECTOR_COLUMN = os.getenv("VECTOR_COLUMN", "vector")
+TEXT_COLUMN = os.getenv("TEXT_COLUMN", "text")
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", 32))
+
+retriever = SentenceTransformer(os.getenv("EMB_MODEL"))
+
+
+def retrieve(query, k):
+    query_vec = retriever.encode(query)
+    try:
+        documents = TABLE.search(query_vec, vector_column_name=VECTOR_COLUMN).limit(k).to_list()
+        documents = [doc[TEXT_COLUMN] for doc in documents]
+
+        return documents
+
+    except Exception as e:
+        raise gr.Error(str(e))
