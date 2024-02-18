@@ -49,12 +49,12 @@ def main():
     for file in tqdm(files):
         parent = file.parent.stem if file.parent.stem != input_dir.stem else ""
         if file.is_file():
-            with open(file) as f:
+            with open(file, encoding="utf-8") as f:
                 md = f.read()
 
             text = markdown_to_text(md)
 
-            with open(output_dir / f"{parent}_{file.stem}.txt", "w") as f:
+            with open(output_dir / f"{parent}_{file.stem}.txt", "w", encoding="utf-8") as f:
                 f.write(text)
 
 
