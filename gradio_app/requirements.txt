@@ -1,7 +1,6 @@
-lancedb==0.5.3
-openai==1.11.1
-sentence-transformers==2.3.1
-tqdm==4.66.1
-torch==2.1.1
-transformers==4.37.2
+lancedb==0.8.2
+openai==1.31.1
+sentence-transformers==3.0.0
+torch==2.3.1
+sentencepiece==0.2.0
 

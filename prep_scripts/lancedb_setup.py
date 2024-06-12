@@ -62,6 +62,8 @@ def main():
 
     sentences = []
     for file in files:
+        if not file.is_file():
+            continue
         with open(file) as f:
             sentences.append(f.read())
 
