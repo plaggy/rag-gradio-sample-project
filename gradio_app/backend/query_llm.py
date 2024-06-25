@@ -42,7 +42,7 @@ def format_prompt(message: str, api_kind: str):
         message (str): The user message to be formatted.
         api_kind (str): LLM API provider.
     Returns:
-        str: Formatted message after applying the chat template.
+        list[dict]: prompt messages
     """
 
     # Create a list of message dictionaries with role and content
